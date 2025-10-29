@@ -18,11 +18,17 @@ export default function Index() {
   const password = "android";
   const rootFolder = "/storage/emulated/0";
 
+  const wifiInformation = async () => {
+    const info = await wifiFtpServer.getWifiInformation()
+    console.log('information wifi', JSON.stringify(info, null, 2))
+  }
+
   const checkPermissionStatus = async () => {
     try {
       const permission = await wifiFtpServer.permissionLocation()
       console.log('permission location', JSON.stringify(permission, null, 2))
       setPermissionStatus(permission);
+      await wifiInformation()
       return permission;
     } catch (error) {
       console.error('Error checking permission:', error)
@@ -35,15 +41,12 @@ export default function Index() {
       const result = await wifiFtpServer.requestPermissionLocation()
       console.log('permission request result', JSON.stringify(result, null, 2))
 
-      // Update canAskAgain status
       if (result.canAskAgain !== undefined) {
         setCanAskAgain(result.canAskAgain);
       }
 
-      // Refresh permission status
       await checkPermissionStatus();
 
-      // Show alert if permission was denied permanently
       if (!result.granted && result.canAskAgain === false) {
         Alert.alert(
           "Permission Required",
@@ -62,7 +65,6 @@ export default function Index() {
     } catch (error: any) {
       console.error('Error requesting permission:', error)
 
-      // Handle manifest permission error
       if (error.code === 'ERR_PERMISSIONS_NOT_DECLARED') {
         Alert.alert(
           "Configuration Error",
@@ -95,14 +97,11 @@ export default function Index() {
     );
   }
 
-  // Check permission status when component mounts
   useEffect(() => {
     checkPermissionStatus();
   }, []);
 
-  // Determine which button to show
   const getPermissionButton = () => {
-    // Still loading
     if (permissionStatus === null) {
       return (
         <TouchableOpacity
@@ -117,7 +116,6 @@ export default function Index() {
       );
     }
 
-    // Permission denied and can't ask again
     if (!permissionStatus.granted && !canAskAgain) {
       return (
         <TouchableOpacity
@@ -132,7 +130,6 @@ export default function Index() {
       );
     }
 
-    // Can request permission
     return (
       <TouchableOpacity
         onPress={requestPermissionLocation}
@@ -158,7 +155,6 @@ export default function Index() {
           </Text>
         </View>
 
-        {/* Permission Status Card */}
         {!permissionStatus?.granted && (
           <View className="bg-amber-50 rounded-2xl p-5 mb-4 border border-amber-200">
             <Text className="text-amber-900 font-semibold mb-2">
@@ -171,7 +167,6 @@ export default function Index() {
           </View>
         )}
 
-        {/* Permission Granted Indicator */}
         {permissionStatus?.granted && (
           <View className="bg-green-50 rounded-2xl p-5 mb-4 border border-green-200">
             <View className="flex-row items-center">
@@ -187,7 +182,6 @@ export default function Index() {
           </View>
         )}
 
-        {/* WiFi Status Card */}
         <View className="bg-gray-50 rounded-2xl p-5 mb-4 border border-gray-200">
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center flex-1">
@@ -206,7 +200,6 @@ export default function Index() {
           </View>
         </View>
 
-        {/* IP Address Card */}
         <View className="bg-gray-50 rounded-2xl p-5 mb-4 border border-gray-200">
           <View className="flex-row items-center">
             <View>
@@ -218,7 +211,6 @@ export default function Index() {
           </View>
         </View>
 
-        {/* WiFi SSID Card */}
         <View className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-200">
           <View className="flex-row items-center">
             <View className="flex-1">
@@ -230,7 +222,6 @@ export default function Index() {
           </View>
         </View>
 
-        {/* Start/Stop Server Button */}
         <TouchableOpacity
           onPress={() => setServerRunning(!serverRunning)}
           className={`rounded-2xl p-5 mb-6 shadow-lg ${!permissionStatus?.granted
@@ -251,7 +242,6 @@ export default function Index() {
           </Text>
         </TouchableOpacity>
 
-        {/* Server Details Card - Only visible when server is running */}
         {serverRunning && (
           <View className="bg-gray-50 rounded-2xl p-6 border border-gray-200" style={{ marginBottom: insets.bottom }}>
             <View className="mb-4">
@@ -260,7 +250,6 @@ export default function Index() {
               </Text>
             </View>
 
-            {/* Server URL */}
             <View className="rounded-xl p-4 mb-3 ">
               <Text className=" text-sm mb-2">Server URL</Text>
               <Text className=" text-base">
@@ -268,7 +257,6 @@ export default function Index() {
               </Text>
             </View>
 
-            {/* Username */}
             <View className=" rounded-xl p-4 mb-3">
               <Text className="text-sm mb-2">Username</Text>
               <Text className="text-base" >
@@ -276,7 +264,6 @@ export default function Index() {
               </Text>
             </View>
 
-            {/* Password */}
             <View className="rounded-xl p-4 mb-3">
               <Text className="text-sm mb-2">Password</Text>
               <Text className="text-base" >
@@ -284,7 +271,6 @@ export default function Index() {
               </Text>
             </View>
 
-            {/* Root Folder */}
             <View className="rounded-xl p-4">
               <Text className="text-sm mb-2">Root Folder</Text>
               <Text className="text-sm">
