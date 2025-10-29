@@ -1,40 +1,52 @@
-import wifiFtpServer, { PermissionLocation } from "@/modules/wifi-ftp-server";
-import { useEffect, useState } from "react";
+import wifiFtpServer, { PermissionLocation, WifiInformation } from "@/modules/wifi-ftp-server";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
 
 export default function Index() {
   const insets = useSafeAreaInsets()
   const [serverRunning, setServerRunning] = useState(false);
-  const [wifiEnabled] = useState(true);
   const [permissionStatus, setPermissionStatus] = useState<PermissionLocation | null>(null);
   const [canAskAgain, setCanAskAgain] = useState(true);
+  const [wifiInfo, setWifiInfo] = useState<WifiInformation | null>(null);
 
-  const ipAddress = "192.168.1.100";
-  const wifiSSID = "MyHomeNetwork";
   const port = "2121";
   const username = "android";
   const password = "android";
   const rootFolder = "/storage/emulated/0";
 
-  const wifiInformation = async () => {
-    const info = await wifiFtpServer.getWifiInformation()
-    console.log('information wifi', JSON.stringify(info, null, 2))
+  const loadWifiInformation = async () => {
+    try {
+      const info = await wifiFtpServer.getWifiInformation()
+      console.log('WiFi information:', JSON.stringify(info, null, 2))
+      setWifiInfo(info);
+    } catch (error: any) {
+      console.error('Error getting WiFi info:', error)
+      if (error.code === 'ERR_PERMISSION_DENIED') {
+        Alert.alert(
+          'Permission Required',
+          'Please grant location permission to access WiFi information'
+        );
+      }
+    }
   }
 
-  const checkPermissionStatus = async () => {
+  const checkPermissionStatus = useCallback(async () => {
     try {
       const permission = await wifiFtpServer.permissionLocation()
       console.log('permission location', JSON.stringify(permission, null, 2))
       setPermissionStatus(permission);
-      await wifiInformation()
+
+      if (permission.granted) {
+        await loadWifiInformation();
+      }
+
       return permission;
     } catch (error) {
       console.error('Error checking permission:', error)
       return null;
     }
-  }
+  }, [])
 
   const requestPermissionLocation = async () => {
     try {
@@ -99,7 +111,7 @@ export default function Index() {
 
   useEffect(() => {
     checkPermissionStatus();
-  }, []);
+  }, [checkPermissionStatus]);
 
   const getPermissionButton = () => {
     if (permissionStatus === null) {
@@ -142,7 +154,6 @@ export default function Index() {
       </TouchableOpacity>
     );
   };
-
   return (
     <ScrollView className="flex-1 bg-white">
       <View className="p-6 pt-12">
@@ -167,82 +178,68 @@ export default function Index() {
           </View>
         )}
 
-        {permissionStatus?.granted && (
-          <View className="bg-green-50 rounded-2xl p-5 mb-4 border border-green-200">
-            <View className="flex-row items-center">
-              <View className="flex-1">
-                <Text className="text-green-900 font-semibold mb-1">
-                  ✓ Location Permission Granted
-                </Text>
-                <Text className="text-green-700 text-xs">
-                  Fine: {permissionStatus.fineLocation ? '✓' : '✗'} | Coarse: {permissionStatus.coarseLocation ? '✓' : '✗'}
-                </Text>
-              </View>
-            </View>
-          </View>
-        )}
-
         <View className="bg-gray-50 rounded-2xl p-5 mb-4 border border-gray-200">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center flex-1">
-              <View>
-                <Text className="text-gray-500 text-sm mb-1">WiFi Status</Text>
-                <Text className="text-lg font-semibold text-gray-900">
-                  {wifiEnabled ? "Connected" : "Disconnected"}
-                </Text>
-              </View>
-            </View>
-            <View className={`px-3 py-1 rounded-full ${wifiEnabled ? 'bg-green-100' : 'bg-red-100'}`}>
-              <Text className={`text-xs font-medium ${wifiEnabled ? 'text-green-700' : 'text-red-700'}`}>
-                {wifiEnabled ? "Active" : "Inactive"}
+          <View className="flex-row items-center justify-between mb-4">
+            <Text className="text-lg font-semibold text-gray-900">WiFi Information</Text>
+            <View className={`px-3 py-1 rounded-full ${wifiInfo?.isConnected ? 'bg-green-100' : 'bg-red-100'}`}>
+              <Text className={`text-xs font-medium ${wifiInfo?.isConnected ? 'text-green-700' : 'text-red-700'}`}>
+                {wifiInfo?.isConnected ? "Active" : "Inactive"}
               </Text>
             </View>
           </View>
-        </View>
 
-        <View className="bg-gray-50 rounded-2xl p-5 mb-4 border border-gray-200">
-          <View className="flex-row items-center">
-            <View>
-              <Text className="text-gray-500 text-sm mb-1">IP Address</Text>
-              <Text className="text-lg font-semibold text-gray-900">
-                {ipAddress}
-              </Text>
-            </View>
+          <View className="border-b border-gray-200 mb-4" />
+
+          <View className="mb-3">
+            <Text className="text-gray-500 text-sm mb-1">Status</Text>
+            <Text className="text-base font-medium text-gray-900">
+              {wifiInfo?.isConnected ? "Connected" : wifiInfo?.isWifiEnabled ? "Not Connected" : "Disabled"}
+            </Text>
           </View>
-        </View>
 
-        <View className="bg-gray-50 rounded-2xl p-5 mb-6 border border-gray-200">
-          <View className="flex-row items-center">
-            <View className="flex-1">
-              <Text className="text-gray-500 text-sm mb-1">WiFi SSID</Text>
-              <Text className="text-lg font-semibold text-gray-900">
-                {wifiSSID}
+          <View className="mb-3">
+            <Text className="text-gray-500 text-sm mb-1">Network Name (SSID)</Text>
+            <Text className="text-base font-medium text-gray-900">
+              {wifiInfo?.ssid || "Not connected"}
+            </Text>
+            {wifiInfo?.bssid && (
+              <Text className="text-gray-500 text-xs mt-1">
+                BSSID: {wifiInfo.bssid}
               </Text>
-            </View>
+            )}
+          </View>
+
+          <View>
+            <Text className="text-gray-500 text-sm mb-1">IP Address</Text>
+            <Text className="text-base font-medium text-gray-900">
+              {wifiInfo?.ipAddress || "Not available"}
+            </Text>
           </View>
         </View>
 
         <TouchableOpacity
           onPress={() => setServerRunning(!serverRunning)}
-          className={`rounded-2xl p-5 mb-6 shadow-lg ${!permissionStatus?.granted
+          className={`rounded-2xl p-5 mb-6 shadow-lg ${!permissionStatus?.granted || !wifiInfo?.isConnected
             ? 'bg-gray-400'
             : serverRunning
               ? 'bg-red-500'
               : 'bg-blue-600'
             }`}
           activeOpacity={0.8}
-          disabled={!permissionStatus?.granted}
+          disabled={!permissionStatus?.granted || !wifiInfo?.isConnected}
         >
           <Text className="text-white text-center text-lg font-bold">
             {!permissionStatus?.granted
               ? "Permission Required"
-              : serverRunning
-                ? "Stop Server"
-                : "Start Server"}
+              : !wifiInfo?.isConnected
+                ? "WiFi Not Connected"
+                : serverRunning
+                  ? "Stop Server"
+                  : "Start Server"}
           </Text>
         </TouchableOpacity>
 
-        {serverRunning && (
+        {serverRunning && wifiInfo?.ipAddress && (
           <View className="bg-gray-50 rounded-2xl p-6 border border-gray-200" style={{ marginBottom: insets.bottom }}>
             <View className="mb-4">
               <Text className="text-xl font-bold">
@@ -250,23 +247,23 @@ export default function Index() {
               </Text>
             </View>
 
-            <View className="rounded-xl p-4 mb-3 ">
-              <Text className=" text-sm mb-2">Server URL</Text>
-              <Text className=" text-base">
-                ftp://{ipAddress}:{port}
+            <View className="rounded-xl p-4 mb-3">
+              <Text className="text-sm mb-2">Server URL</Text>
+              <Text className="text-base">
+                ftp://{wifiInfo.ipAddress}:{port}
               </Text>
             </View>
 
-            <View className=" rounded-xl p-4 mb-3">
+            <View className="rounded-xl p-4 mb-3">
               <Text className="text-sm mb-2">Username</Text>
-              <Text className="text-base" >
+              <Text className="text-base">
                 {username}
               </Text>
             </View>
 
             <View className="rounded-xl p-4 mb-3">
               <Text className="text-sm mb-2">Password</Text>
-              <Text className="text-base" >
+              <Text className="text-base">
                 {password}
               </Text>
             </View>
